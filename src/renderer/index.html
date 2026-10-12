@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Token Usage Sidebar</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="collapsed">
+    <!-- Painel detalhado (hover) -->
+    <section id="panel" aria-hidden="true">
+      <header>
+        <h1>Uso do Claude</h1>
+        <span class="plan" id="source-badge">—</span>
+        <div class="hbtns">
+          <button id="refresh-w" title="Atualizar">↻</button>
+          <button id="gear" title="Configurações">⚙</button>
+        </div>
+      </header>
+
+      <div class="prow">
+        <div class="ptop"><span class="plabel">Janela de 5 horas</span><span class="pval" id="v-5h">–</span></div>
+        <div class="pbar sess"><i id="bar-5h"></i></div>
+        <div class="preset" id="reset-5h"></div>
+      </div>
+
+      <hr class="sep" />
+
+      <div class="prow">
+        <div class="ptop"><span class="plabel">Semanal (7 dias)</span><span class="pval" id="v-7d">–</span></div>
+        <div class="pbar week"><i id="bar-7d"></i></div>
+        <div class="preset" id="reset-7d"></div>
+      </div>
+
+      <hr class="sep" />
+
+      <div class="summary">
+        <div class="srow"><span>Pico semanal</span><b id="s-peak">–</b></div>
+        <div class="srow"><span>Dias ativos</span><b id="s-days">–</b></div>
+      </div>
+
+      <footer class="pfoot">
+        <span class="fupd" id="updated">—</span>
+        <button class="flink" id="btn-quit">Sair</button>
+      </footer>
+    </section>
+
+    <!-- Pílula encostada na borda direita -->
+    <aside id="pill">
+      <div class="gauge" data-key="5h"><div class="ring"><span class="val">–</span></div><div class="cap">5h</div></div>
+      <div class="gauge" data-key="7d"><div class="ring"><span class="val">–</span></div><div class="cap">7d</div></div>
+    </aside>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

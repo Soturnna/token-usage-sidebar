@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>token-usage-sidebar</title>
+  <link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+  <div id="win">
+    <div id="titlebar">
+      <span class="tdot"></span>
+      <span class="ttitle">Token Usage Sidebar</span>
+      <button id="close" class="tbtn" title="Fechar">×</button>
+    </div>
+
+    <main>
+      <section class="card">
+        <div class="card-h"><h2>Uso atual</h2><span id="source-badge" class="badge">—</span></div>
+        <div class="tiles">
+          <div class="tile"><div class="lbl">Limite semanal · 7 dias</div><div class="big" id="t-7d">–</div><div class="minibar"><i id="b-7d"></i></div></div>
+          <div class="tile"><div class="lbl">Sessão · 5 horas</div><div class="big" id="t-5h">–</div><div class="minibar"><i id="b-5h"></i></div></div>
+        </div>
+        <div class="substats" id="substats"></div>
+      </section>
+
+      <section class="card">
+        <h2>Configurações</h2>
+        <label class="opt"><span>Mostrar widget na tela</span><input type="checkbox" id="showWidget" /></label>
+        <label class="opt"><span>Iniciar com o Windows</span><input type="checkbox" id="autostart" /></label>
+        <label class="opt">
+          <span>Frequência de atualização</span>
+          <select id="refreshMin">
+            <option value="1">A cada minuto</option>
+            <option value="5">A cada 5 minutos</option>
+            <option value="15">A cada 15 minutos</option>
+            <option value="60">A cada hora</option>
+          </select>
+        </label>
+      </section>
+
+      <div class="actions">
+        <button id="refresh" class="btn primary">Atualizar agora</button>
+        <button id="quit" class="btn danger">Sair do app</button>
+      </div>
+    </main>
+
+    <footer id="foot">
+      <span id="version" class="ver">v—</span>
+      <button id="check-update" class="link">Buscar atualizações ↻</button>
+      <span id="update-status" class="ustatus"></span>
+    </footer>
+  </div>
+  <script src="panel.js"></script>
+</body>
+</html>

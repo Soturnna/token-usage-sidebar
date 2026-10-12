@@ -1,0 +1,85 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: rgba(20, 22, 28, 0.74);
+  --solid: #12141b;
+  --fg: #f2f4f8;
+  --muted: #9aa3b2;
+  --track: rgba(255, 255, 255, 0.10);
+  --line: rgba(255, 255, 255, 0.10);
+  --green: #46c47a;
+  --bronze: #d6a24a;
+  --red: #f87171;
+}
+html, body {
+  background: transparent;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: var(--fg); user-select: none; overflow: hidden; height: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+#app { height: 100vh; display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 0; }
+
+/* ----- Pílula encostada na borda direita (gota, cantos côncavos suaves) ----- */
+#pill {
+  width: 86px; height: 360px; position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: var(--bg);
+  -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+  clip-path: path("M86 0 C 86 46, 0 46, 0 92 L 0 268 C 0 314, 86 314, 86 360 Z");
+  cursor: grab;
+}
+#pill:active { cursor: grabbing; }
+.gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ring {
+  --p: 0; --c: var(--green);
+  width: 52px; height: 52px; border-radius: 50%;
+  background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--track) 0);
+  display: grid; place-items: center; position: relative; transition: background 0.4s ease;
+}
+.ring::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--solid); }
+.ring .val { position: relative; font-size: 13px; font-weight: 600; }
+.cap { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
+
+/* ----- Painel detalhado (cartão premium, 4 cantos arredondados) ----- */
+#panel {
+  width: 308px; position: relative; z-index: 1;
+  padding: 20px 22px 16px;
+  background: var(--bg);
+  -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  opacity: 0; transform: translateX(22px) scale(0.985);
+  transform-origin: right center;
+  transition: opacity 0.26s ease-out, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+#app:not(.collapsed) #panel { opacity: 1; transform: none; pointer-events: auto; }
+#app.collapsed #panel { display: none; }
+
+#panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+#panel h1 { font-size: 15px; font-weight: 650; letter-spacing: 0.2px; }
+.plan { font-size: 10px; font-weight: 600; color: var(--green); background: rgba(70, 196, 122, 0.14); padding: 2px 8px; border-radius: 20px; }
+.plan.local { color: var(--bronze); background: rgba(214, 162, 74, 0.14); }
+.hbtns { margin-left: auto; display: flex; gap: 2px; }
+.hbtns button { background: none; border: none; color: var(--muted); font-size: 15px; cursor: pointer; width: 28px; height: 28px; border-radius: 8px; line-height: 1; }
+.hbtns button:hover { background: rgba(255, 255, 255, 0.08); color: var(--fg); }
+
+.prow { margin: 2px 0; }
+.ptop { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
+.plabel { font-size: 13px; font-weight: 500; }
+.pval { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pbar { height: 8px; border-radius: 6px; background: var(--track); overflow: hidden; }
+.pbar > i { display: block; height: 100%; width: 0; border-radius: 6px; transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.pbar.sess > i { background: linear-gradient(90deg, #3aa869, var(--green)); }
+.pbar.week > i { background: linear-gradient(90deg, #c08a34, var(--bronze)); }
+.preset { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+.sep { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+
+.summary { display: flex; flex-direction: column; gap: 8px; }
+.srow { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+.srow b { color: var(--fg); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+.pfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line); }
+.fupd { font-size: 10.5px; color: var(--muted); }
+.flink { background: none; border: none; color: var(--muted); font-size: 12px; cursor: pointer; padding: 0; }
+.flink:hover { color: var(--fg); }
