@@ -2,10 +2,19 @@
 // Fonte: %APPDATA%\Claude\plan-usage-history.json (fh = janela de 5h, sd = janela de 7 dias).
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
+// Resolve o caminho do historico sem depender de variaveis de ambiente, que o
+// lancador do executavel portatil pode nao repassar. os.homedir() usa a API do
+// Windows e funciona mesmo com APPDATA/USERPROFILE vazios. Retorna o primeiro
+// caminho candidato que existir.
 function historyPath() {
-  const base = process.env.APPDATA || path.join(process.env.USERPROFILE || "", "AppData", "Roaming");
-  return path.join(base, "Claude", "plan-usage-history.json");
+  const candidates = [];
+  if (process.env.APPDATA) candidates.push(path.join(process.env.APPDATA, "Claude", "plan-usage-history.json"));
+  const home = os.homedir();
+  if (home) candidates.push(path.join(home, "AppData", "Roaming", "Claude", "plan-usage-history.json"));
+  for (const c of candidates) { try { if (fs.existsSync(c)) return c; } catch { /* tenta o proximo */ } }
+  return candidates[0] || path.join("Claude", "plan-usage-history.json");
 }
 
 function numOrNull(n) {

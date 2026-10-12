@@ -14,7 +14,7 @@ try { _net = require("electron").net; } catch { /* fora do Electron */ }
 const httpFetch = (url, opts) => (_net && _net.fetch ? _net.fetch(url, opts) : fetch(url, opts));
 
 function tokenFilePaths() {
-  const home = process.env.USERPROFILE || process.env.HOME || "";
+  const home = process.env.USERPROFILE || process.env.HOME || require("os").homedir() || "";
   const list = [];
   if (process.env.CLAUDE_CONFIG_DIR) list.push(path.join(process.env.CLAUDE_CONFIG_DIR, ".credentials.json"));
   if (home) list.push(path.join(home, ".claude", ".credentials.json"));
