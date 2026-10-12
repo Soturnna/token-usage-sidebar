@@ -17,8 +17,8 @@
   "build": {
     "appId": "com.marcos.tokenusagesidebar",
     "productName": "token-usage-sidebar",
-    "files": ["src/**/*", "package.json"],
-    "win": { "target": "portable" },
+    "files": ["src/**/*", "assets/**/*", "package.json"],
+    "win": { "target": "portable", "signAndEditExecutable": false },
     "portable": { "artifactName": "token-usage-sidebar.exe" }
   }
 }

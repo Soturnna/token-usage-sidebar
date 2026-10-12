@@ -33,9 +33,10 @@ O app tenta, nesta ordem:
 
 ## 📦 Instalação (uso)
 
-1. Baixe o `.zip` mais recente em **[Releases](https://github.com/Soturnna/token-usage-sidebar/releases)**.
-2. Extraia a pasta.
-3. Execute **`token-usage-sidebar.exe`**.
+1. Baixe o executável **`token-usage-sidebar.exe`** mais recente em **[Releases](https://github.com/Soturnna/token-usage-sidebar/releases)**.
+2. Execute o arquivo. É um **portátil de arquivo único** — não precisa instalar nem extrair nada.
+
+> O app roda em segundo plano, na bandeja do sistema, com a barra ancorada à direita da tela.
 
 Para o **modo ao vivo**, faça login pela CLI do Claude Code (gera o token em texto puro):
 
@@ -59,7 +60,7 @@ npm start          # roda em modo de desenvolvimento
 npm run dist       # empacota (electron-builder)
 ```
 
-> O alvo portátil de **arquivo único** exige o *Modo de Desenvolvedor* do Windows (links simbólicos na etapa de assinatura). Sem ele, use `electron-builder --win dir`, que gera a pasta `dist/win-unpacked` funcional.
+> O `npm run dist` gera o portátil de **arquivo único** `dist/token-usage-sidebar.exe`. A assinatura do executável fica desativada (`win.signAndEditExecutable: false`), o que evita a dependência do `winCodeSign` e dispensa o *Modo de Desenvolvedor* do Windows. Em troca, o ícone do arquivo `.exe` é o padrão do Electron (o ícone da bandeja, em tempo de execução, usa `assets/icon.png`).
 
 ## 📁 Estrutura
 
