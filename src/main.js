@@ -5,7 +5,7 @@ const { readUsage } = require("./usage");
 const live = require("./live");
 
 // Repositório para a verificação de atualizações (preenchido após a publicação).
-const REPO = "";
+const REPO = "Soturnna/token-usage-sidebar";
 const APP_NAME = "Token Usage Sidebar";
 
 const COLLAPSED = { w: 94, h: 384 };
