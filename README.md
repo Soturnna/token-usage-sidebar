@@ -19,6 +19,7 @@ Fica ancorada à borda direita da tela como dois medidores circulares. Ao passar
 - **Modo ao vivo** que bate com a página de **Uso** do Claude.
 - **Reserva local** quando o modo ao vivo não está disponível.
 - **Arraste vertical**: segure a barra e deslize; a posição fica salva.
+- **Botão "Abrir Claude"** na barra (e na bandeja): um clique abre o menu com **app de desktop**, **claude.ai no navegador** ou **Claude Code no terminal**.
 - **Painel de controle**: mostrar/ocultar o widget, **iniciar com o Windows**, frequência de atualização e verificação de novas versões.
 - **Bandeja do sistema** com menu rápido (atualizar, frequência, mostrar/ocultar, sair).
 

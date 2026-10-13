@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld("sidebar", {
   move: (screenY, grabY) => ipcRenderer.send("sidebar-move", screenY, grabY),
   moveEnd: () => ipcRenderer.send("sidebar-move-end"),
   quit: () => ipcRenderer.send("quit"),
+  openClaudeMenu: () => ipcRenderer.send("open-claude-menu"),
 });

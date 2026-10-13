@@ -14,6 +14,11 @@ document.getElementById("gear").addEventListener("click", () => window.sidebar.o
 document.getElementById("refresh-w").addEventListener("click", () => window.sidebar.refresh());
 document.getElementById("btn-quit").addEventListener("click", () => window.sidebar.quit());
 
+// botão "Abrir Claude": impede que o clique inicie o arraste da pílula
+const launchBtn = document.getElementById("launch");
+launchBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+launchBtn.addEventListener("click", (e) => { e.stopPropagation(); window.sidebar.openClaudeMenu(); });
+
 // arrastar a barra verticalmente (segurando em qualquer parte da pílula)
 let _drag = false, _grabY = 0, _moved = false;
 pill.addEventListener("pointerdown", (e) => { _drag = true; _moved = false; _grabY = e.clientY; try { pill.setPointerCapture(e.pointerId); } catch {} });

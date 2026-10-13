@@ -20,14 +20,26 @@ html, body {
 
 /* ----- Pílula encostada na borda direita (gota, cantos côncavos suaves) ----- */
 #pill {
-  width: 86px; height: 360px; position: relative; z-index: 2;
+  width: 86px; height: 400px; position: relative; z-index: 2;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
   background: var(--bg);
   -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
-  clip-path: path("M86 0 C 86 46, 0 46, 0 92 L 0 268 C 0 314, 86 314, 86 360 Z");
+  clip-path: path("M86 0 C 86 46, 0 46, 0 92 L 0 308 C 0 354, 86 354, 86 400 Z");
   cursor: grab;
 }
 #pill:active { cursor: grabbing; }
+
+/* ----- Botão "Abrir Claude" (abre menu com desktop / web / terminal) ----- */
+.launch {
+  width: 36px; height: 36px; margin-top: 2px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line);
+  color: var(--muted); cursor: pointer;
+  transition: color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.launch svg { width: 17px; height: 17px; }
+.launch:hover { color: var(--bronze); background: rgba(214, 162, 74, 0.12); box-shadow: 0 0 14px rgba(214, 162, 74, 0.25); }
+.launch:active { transform: scale(0.94); }
 .gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ring {
   --p: 0; --c: var(--green);

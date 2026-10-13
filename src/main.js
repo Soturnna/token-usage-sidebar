@@ -1,6 +1,8 @@
-const { app, BrowserWindow, Tray, Menu, screen, ipcMain, nativeImage, net } = require("electron");
+const { app, BrowserWindow, Tray, Menu, screen, ipcMain, nativeImage, net, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
+const { spawn } = require("child_process");
 const { readUsage } = require("./usage");
 const live = require("./live");
 
@@ -8,8 +10,8 @@ const live = require("./live");
 const REPO = "Soturnna/token-usage-sidebar";
 const APP_NAME = "Token Usage Sidebar";
 
-const COLLAPSED = { w: 94, h: 384 };
-const EXPANDED = { w: 424, h: 384 };
+const COLLAPSED = { w: 94, h: 424 };
+const EXPANDED = { w: 424, h: 424 };
 const MARGIN = 0;
 const DEFAULTS = { refreshMin: 5, autostart: false, showWidget: true, primary: "7d", posY: null };
 
@@ -138,10 +140,51 @@ async function checkUpdate() {
   }
 }
 
+// ----- Abrir o Claude (desktop / web / terminal) -----
+const CLAUDE_WEB = "https://claude.ai";
+
+// App de desktop: usa o protocolo claude:// registrado pelo instalador (funciona
+// em instalação pela Microsoft Store ou pelo instalador comum). Sem protocolo, abre a web.
+function openClaudeDesktop() {
+  let handler = "";
+  try { handler = app.getApplicationNameForProtocol("claude://"); } catch { /* ignora */ }
+  shell.openExternal(handler ? "claude://" : CLAUDE_WEB).catch(() => shell.openExternal(CLAUDE_WEB));
+}
+
+function openClaudeWeb() {
+  shell.openExternal(CLAUDE_WEB);
+}
+
+// Claude Code: abre o Windows Terminal já rodando `claude` na pasta do usuário.
+// Se o Windows Terminal não existir, recorre a uma janela do cmd.
+function openClaudeCode() {
+  const home = os.homedir();
+  const viaCmd = () => {
+    try {
+      spawn("cmd.exe", ["/c", "start", "", "cmd", "/k", "claude"], { cwd: home, detached: true, stdio: "ignore", windowsHide: true }).unref();
+    } catch { /* ignora */ }
+  };
+  try {
+    const wt = spawn("wt.exe", ["-d", home, "cmd", "/k", "claude"], { cwd: home, detached: true, stdio: "ignore" });
+    wt.on("error", viaCmd);
+    wt.unref();
+  } catch { viaCmd(); }
+}
+
+function claudeMenuItems() {
+  return [
+    { label: "App de desktop do Claude", click: openClaudeDesktop },
+    { label: "claude.ai no navegador", click: openClaudeWeb },
+    { label: "Claude Code (terminal)", click: openClaudeCode },
+  ];
+}
+
 function rebuildTray() {
   if (!tray) return;
   const freqs = [1, 5, 15, 60];
   const menu = Menu.buildFromTemplate([
+    { label: "Abrir Claude", submenu: claudeMenuItems() },
+    { type: "separator" },
     { label: "Atualizar agora", click: tick },
     {
       label: "Frequência de atualização",
@@ -184,6 +227,9 @@ ipcMain.on("sidebar-move", (_e, screenY, grabY) => {
 });
 ipcMain.on("sidebar-move-end", () => saveConfig());
 ipcMain.on("open-panel", openPanel);
+ipcMain.on("open-claude-menu", () => {
+  Menu.buildFromTemplate(claudeMenuItems()).popup({ window: sidebar || undefined });
+});
 ipcMain.on("panel-close", () => { if (panel) panel.hide(); });
 ipcMain.on("refresh", tick);
 ipcMain.on("quit", () => app.exit(0));
