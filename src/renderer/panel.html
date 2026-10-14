@@ -23,10 +23,42 @@
         <div class="substats" id="substats"></div>
       </section>
 
+      <!-- Integração com o Claude Code: hooks (gatos) + statusLine (gauges) -->
+      <section class="card" id="integ">
+        <div class="card-h"><h2>Claude Code</h2><span id="integ-badge" class="badge local">—</span></div>
+        <p class="integ-txt" id="integ-txt">Verificando…</p>
+        <div class="integ-row">
+          <span>Gatos acompanham o <span translate="no">Claude Code</span></span>
+          <button id="hooks-btn" class="btn small">Conectar</button>
+        </div>
+        <div class="integ-row">
+          <span>Gauges pela statusLine<small>Números a cada resposta, sem rede. Esconde as dicas do rodapé do <span translate="no">Claude Code</span>.</small></span>
+          <button id="status-btn" class="btn small">Ativar</button>
+        </div>
+        <div id="diff-box" hidden>
+          <p class="diff-title" id="diff-title">Alterações em settings.json</p>
+          <pre id="diff" tabindex="0" aria-label="Diferença no arquivo settings.json"></pre>
+          <p class="diff-note" id="diff-note"></p>
+          <div class="actions">
+            <button id="diff-cancel" class="btn">Cancelar</button>
+            <button id="diff-apply" class="btn primary">Aplicar</button>
+          </div>
+        </div>
+        <p class="integ-msg" id="integ-msg" role="status" aria-live="polite"></p>
+      </section>
+
       <section class="card">
         <h2>Configurações</h2>
         <label class="opt"><span>Mostrar widget na tela</span><input type="checkbox" id="showWidget" /></label>
         <label class="opt"><span>Iniciar com o Windows</span><input type="checkbox" id="autostart" /></label>
+        <label class="opt">
+          <span>Gatinhos na barra</span>
+          <select id="cats">
+            <option value="0">Nenhum</option>
+            <option value="1">1 gatinho</option>
+            <option value="2">2 gatinhos</option>
+          </select>
+        </label>
         <label class="opt">
           <span>Frequência de atualização</span>
           <select id="refreshMin">

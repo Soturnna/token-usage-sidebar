@@ -10,4 +10,10 @@ contextBridge.exposeInMainWorld("panelApi", {
   close: () => ipcRenderer.send("panel-close"),
   quit: () => ipcRenderer.send("quit"),
   onUsage: (cb) => ipcRenderer.on("usage", (_e, data) => cb(data)),
+  // Integração com o Claude Code (hooks + statusLine)
+  integrationStatus: () => ipcRenderer.invoke("integration-status"),
+  integrationPreview: (alvo, acao) => ipcRenderer.invoke("integration-preview", { alvo, acao }),
+  integrationApply: (alvo, acao, impressao) => ipcRenderer.invoke("integration-apply", { alvo, acao, impressao }),
+  onIntegration: (cb) => ipcRenderer.on("integration", (_e, s) => cb(s)),
+  onAgent: (cb) => ipcRenderer.on("agent", (_e, resumo) => cb(resumo)),
 });
