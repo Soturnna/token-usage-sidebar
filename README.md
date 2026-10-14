@@ -85,6 +85,8 @@ src/
 
 Mecanismo de leitura de uso ao vivo **reescrito de forma original**, inspirado no projeto open source (licença MIT) [CodeZeno/Claude-Code-Usage-Monitor](https://github.com/CodeZeno/Claude-Code-Usage-Monitor).
 
+A integração com os hooks do Claude Code (relay que nunca bloqueia o agente, named pipe, instalação com diff e backup) e a calibração das reações dos gatos (irritado 800 ms; tonto após 3 cliques em 1,7 s, por 3,3 s; sono após 2 min sem atividade) são **ideias** do projeto [Coucou](https://github.com/Louis-CFM/coucou), de Louis Raillé (código sob licença MIT). Nenhum código, arte, nome, som ou animação do Coucou/Mochi foi usado: os gatos, os sprites e a implementação são originais deste projeto.
+
 ## 📄 Licença
 
 [MIT](LICENSE) © 2026 Marcos Júnio
