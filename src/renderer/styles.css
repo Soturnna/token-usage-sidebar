@@ -245,13 +245,16 @@ button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 }
 
 /* ----- BALÕES ("!", "?", "…", "oi!", ampulheta) -----
-   Pixel art em SVG: crispEdges mantém os "pixels" quadrados. Fica acima da
-   cabeça, um pouco para a direita (a folga de 32 px no topo da janela existe
-   para ele caber no poleiro). */
-.cat-balao { position: absolute; top: -20%; right: -6%; width: 40%; pointer-events: none; }
+   Pixel art em SVG: crispEdges mantém os "pixels" quadrados. Fica à ESQUERDA
+   da cabeça (do lado da tela, onde a janela fixa tem espaço livre), com o
+   rabicho apontando para o gato. Em cima ele seria cortado pela borda da
+   janela quando o gato está no poleiro. */
+.cat-balao { position: absolute; top: 2%; right: 66%; width: 40%; pointer-events: none; }
 .cat-balao:empty { display: none; }
-.cat-bubble { display: block; width: 100%; height: auto; shape-rendering: crispEdges; overflow: visible; transform-origin: 30% 100%; }
+.cat-bubble { display: block; width: 100%; height: auto; shape-rendering: crispEdges; overflow: visible; transform-origin: 85% 100%; }
 .cat-bubble .bg { fill: var(--fg); stroke: var(--ink); stroke-width: 1; paint-order: stroke; }
+/* o desenho do balão tem o rabicho à esquerda: espelhado, ele aponta para o gato */
+.cat-bubble .bg { transform: scaleX(-1); transform-box: view-box; transform-origin: 11.5px 11px; }
 .cat-bubble .ink { fill: var(--ink); }
 .cat-bubble .txt { font: 700 8.5px "Segoe UI", system-ui, sans-serif; }
 /* o balão entra com um "pop" */
