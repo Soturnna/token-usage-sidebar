@@ -5,15 +5,23 @@ const os = require("os");
 const { spawn } = require("child_process");
 const { readUsage } = require("./usage");
 const live = require("./live");
+const agentePipe = require("./agent-pipe");
+const { criarAgregador } = require("./agent-state");
+const hooksInstall = require("./hooks-install");
+const { gerarPng } = require("./make-icon");
 
 // Repositório para a verificação de atualizações (preenchido após a publicação).
 const REPO = "Soturnna/token-usage-sidebar";
 const APP_NAME = "Token Usage Sidebar";
 
-const COLLAPSED = { w: 94, h: 424 };
-const EXPANDED = { w: 424, h: 424 };
+// A janela da barra tem tamanho FIXO: largura do painel aberto + pílula, e
+// altura da pílula (400) + folga para os balões dos gatos. Abrir/fechar o painel
+// é só CSS; as áreas transparentes deixam o clique passar para o que está atrás
+// (setIgnoreMouseEvents com encaminhamento). Antes, a janela era redimensionada
+// de 94 para 424 px a cada hover e o Windows desenhava um quadro "torto" no meio.
+const JANELA = { w: 424, h: 456 };
 const MARGIN = 0;
-const DEFAULTS = { refreshMin: 5, autostart: false, showWidget: true, primary: "7d", posY: null };
+const DEFAULTS = { refreshMin: 5, autostart: false, showWidget: true, primary: "7d", posY: null, cats: 1 };
 
 let sidebar = null;
 let panel = null;
@@ -38,18 +46,33 @@ function applyAutostart() {
   try { app.setLoginItemSettings({ openAtLogin: !!config.autostart, path: exePath }); } catch { /* ignora */ }
 }
 
-function placeSidebar(w, h) {
-  if (!sidebar) return;
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const x = width - w - MARGIN;
-  let y = config.posY != null ? config.posY : Math.round((height - h) / 2);
-  y = Math.max(0, Math.min(height - h, y));
-  sidebar.setBounds({ x, y, width: w, height: h });
+// Encostada na borda direita da área útil (workArea respeita a barra de tarefas
+// em qualquer lado da tela). posY é relativo ao topo da área útil.
+function limitesSidebar() {
+  const area = screen.getPrimaryDisplay().workArea;
+  const x = area.x + area.width - JANELA.w - MARGIN;
+  let y = config.posY != null ? config.posY : Math.round((area.height - JANELA.h) / 2);
+  y = Math.max(0, Math.min(area.height - JANELA.h, y));
+  return { x, y: area.y + y, width: JANELA.w, height: JANELA.h, relY: y };
+}
+function placeSidebar() {
+  if (!sidebar || sidebar.isDestroyed()) return;
+  const { relY, ...b } = limitesSidebar();
+  sidebar.setBounds(b);
+}
+
+let sidebarInterativa = null;
+// true = a janela recebe o mouse; false = cliques atravessam (só o movimento
+// continua chegando ao renderer, para ele saber quando o cursor entra na barra)
+function definirInterativa(v) {
+  if (!sidebar || sidebar.isDestroyed() || v === sidebarInterativa) return;
+  sidebarInterativa = v;
+  sidebar.setIgnoreMouseEvents(!v, { forward: true });
 }
 
 function createSidebar() {
   sidebar = new BrowserWindow({
-    width: COLLAPSED.w, height: COLLAPSED.h,
+    ...limitesSidebar(),
     frame: false, transparent: true, resizable: false,
     skipTaskbar: true, alwaysOnTop: true, hasShadow: false,
     fullscreenable: false, maximizable: false, minimizable: false,
@@ -57,9 +80,139 @@ function createSidebar() {
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false },
   });
   sidebar.setAlwaysOnTop(true, "screen-saver");
+  definirInterativa(false);
   sidebar.loadFile(path.join(__dirname, "renderer", "index.html"));
-  placeSidebar(COLLAPSED.w, COLLAPSED.h);
-  sidebar.webContents.on("did-finish-load", tick);
+  placeSidebar();
+  sidebar.webContents.on("did-finish-load", () => { tick(); enviarConfig(); enviarAgente(); });
+  // Monitor trocado, resolução ou barra de tarefas alteradas: reposiciona
+  for (const ev of ["display-metrics-changed", "display-added", "display-removed"]) screen.on(ev, placeSidebar);
+}
+
+function enviarConfig() {
+  for (const w of [sidebar, panel]) if (w && !w.isDestroyed()) w.webContents.send("config", config);
+}
+
+// ----- Estado do Claude Code (alimenta os gatos), via HOOKS -----
+// Antes: fs.watch nas transcrições .jsonl + "6 s de silêncio = terminou". Isso
+// falhava porque o .jsonl só é gravado quando uma mensagem TERMINA (17% das
+// pausas reais dentro de um turno passavam de 6 s). Agora o próprio Claude Code
+// avisa cada etapa pelos hooks: hook -> tus-relay.exe -> named pipe -> aqui.
+const agregador = criarAgregador();
+let relayInfo = null;           // { ok, exe, pipe, token } — ver agent-pipe.js
+let pipeEscutando = false;
+let pipeErro = null;
+let ultimoStatusLine = null;    // { fh, sd, reset5h, reset7d, t } vindo da statusLine
+let iconeNormal = null, iconeAlerta = null;
+
+// Textos do estado (bandeja e painel)
+const TEXTO_ESTADO = {
+  idle: "Claude Code ocioso",
+  thinking: "Pensando…",
+  working: "Trabalhando",
+  approval: "Aguardando sua aprovação",
+  question: "Esperando sua resposta",
+  finished: "Concluído",
+  error: "Erro na resposta",
+  ratelimit: "Limite de uso atingido",
+};
+
+function enviarAgente() {
+  const resumo = { ...agregador.resumo(), conectado: pipeEscutando && integracao.hooks };
+  for (const w of [sidebar, panel]) if (w && !w.isDestroyed()) w.webContents.send("agent", resumo);
+  atualizarBandeja(resumo);
+}
+
+// Bandeja: o tooltip diz o estado; aguardando aprovação, o ícone ganha um selo
+function atualizarBandeja(resumo) {
+  if (!tray) return;
+  const s = resumo.sessoes[0];
+  let texto = TEXTO_ESTADO[resumo.estado] || "";
+  if (s && s.tool && (resumo.estado === "working" || resumo.estado === "approval")) texto += " · " + s.tool;
+  if (s && s.project) texto += " · " + s.project;
+  tray.setToolTip(APP_NAME + "\n" + texto);
+  const alerta = resumo.estado === "approval" || resumo.estado === "question";
+  if (!iconeNormal) iconeNormal = nativeImage.createFromPath(ICON);
+  if (!iconeAlerta) iconeAlerta = nativeImage.createFromBuffer(gerarPng({ alerta: true }));
+  tray.setImage(alerta ? iconeAlerta : iconeNormal);
+}
+
+// Uma mensagem do relay: evento de hook ou limites da statusLine
+function receberDoRelay(msg) {
+  if (msg.kind === "statusline") return receberStatusLine(msg.rate_limits);
+  if (agregador.aplicar(msg, Date.now())) enviarAgente();
+}
+
+function iniciarAgente() {
+  // Em desenvolvimento o relay fica em assets/relay; no .exe, dentro do app.asar
+  relayInfo = agentePipe.prepararRelay(path.join(__dirname, "..", "assets", "relay", "tus-relay.exe"));
+  const servidor = agentePipe.iniciarServidor({
+    pipe: relayInfo.pipe,
+    token: relayInfo.token,
+    aoReceber: receberDoRelay,
+    aoErro: (e) => { pipeEscutando = false; pipeErro = String((e && e.code) || e); enviarAgente(); },
+  });
+  servidor.on("listening", () => { pipeEscutando = true; pipeErro = null; enviarAgente(); });
+  // Transições por tempo (concluído -> ocioso, vigia...)
+  setInterval(() => { if (agregador.tick(Date.now())) enviarAgente(); }, 1000);
+  // O settings.json pode ser editado por fora: relê o estado da integração de vez em quando
+  setInterval(() => {
+    const antes = JSON.stringify(integracao);
+    lerIntegracao();
+    if (JSON.stringify(integracao) !== antes) { enviarAgente(); enviarIntegracao(); }
+  }, 10000);
+}
+
+// ----- Integração com o Claude Code (painel de controle) -----
+let integracao = { hooks: false, hooksParcial: false, statusLine: false, erro: null };
+function lerIntegracao() {
+  try { integracao = { ...hooksInstall.estado(hooksInstall.ler(hooksInstall.caminhoSettings()).obj), erro: null }; }
+  catch (e) { integracao = { hooks: false, hooksParcial: false, statusLine: false, erro: String(e.message || e) }; }
+  return integracao;
+}
+function statusIntegracao() {
+  return {
+    ...integracao,
+    pipe: pipeEscutando, pipeErro,
+    relay: !!(relayInfo && relayInfo.ok),
+    settings: hooksInstall.caminhoSettings(),
+  };
+}
+function enviarIntegracao() {
+  if (panel && !panel.isDestroyed()) panel.webContents.send("integration", statusIntegracao());
+}
+
+// Cada ação vira uma transformação do settings.json (alvo: hooks | statusline)
+function transformacao(alvo, acao) {
+  const exe = relayInfo && relayInfo.exe;
+  if (alvo === "hooks") return acao === "instalar" ? (o) => hooksInstall.comHooks(o, exe) : hooksInstall.semHooks;
+  if (alvo === "statusline") {
+    if (acao === "instalar") return (o) => hooksInstall.comStatus(o, exe).obj;
+    const original = agentePipe.lerConfigRelay().statusLineOriginal || null;
+    return (o) => hooksInstall.semStatus(o, original);
+  }
+  throw new Error("ação desconhecida");
+}
+
+// ----- Posição do cursor (caça ao mouse e olhar dos gatos) -----
+// A janela da barra é estreita: o renderer não recebe eventos de mouse fora
+// dela. Então o processo principal consulta a posição GLOBAL do cursor e a
+// envia (coordenadas de tela, em DIP) só quando ela muda. A frequência é pedida
+// pelo renderer: ~30 Hz com algum gato acordado (o olhar acompanha a cada
+// quadro), 10 Hz com todos dormindo.
+let cursorIntervaloMs = 100;
+let cursorTimer = null;
+let ultimoCursor = null;
+function observarCursor() {
+  clearInterval(cursorTimer);
+  cursorTimer = setInterval(() => {
+    // Roda mesmo sem gatos: o renderer também usa o cursor para fechar o painel
+    // quando o mouse sai da janela (com cliques atravessando, o "mouseleave" não é confiável)
+    if (!sidebar || sidebar.isDestroyed() || !sidebar.isVisible()) return;
+    const p = screen.getCursorScreenPoint();
+    if (ultimoCursor && ultimoCursor.x === p.x && ultimoCursor.y === p.y) return;
+    ultimoCursor = p;
+    sidebar.webContents.send("cursor", p);
+  }, cursorIntervaloMs);
 }
 
 function createPanel() {
@@ -86,29 +239,69 @@ function setWidgetVisible(v) {
   rebuildTray();
 }
 
-async function resolveUsage() {
+// ----- Uso (gauges 5h / 7d) -----
+// Três fontes, da mais fresca para a de reserva:
+//   1. statusLine do Claude Code (empurrada a cada resposta, sem rede) — opcional;
+//   2. endpoint OAuth (live.js), consultado no intervalo configurado;
+//   3. histórico local do app de desktop (usage.js).
+// Entre 1 e 2 vence a leitura MAIS RECENTE: a statusLine só flui com uma sessão
+// do Claude Code aberta, e o consumo pelo app/web só aparece no endpoint.
+let liveFalhou = null;
+
+const isoDeEpoch = (s) => (Number.isFinite(Number(s)) && Number(s) > 0 ? new Date(Number(s) * 1000).toISOString() : null);
+function pctValido(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;
+}
+
+// Limites recebidos da statusLine (formato da doc: used_percentage 0–100, resets_at em epoch s)
+function receberStatusLine(rl) {
+  if (!rl || typeof rl !== "object") return;
+  const ant = ultimoStatusLine || {};
+  const janela = (j, pctAnt, resetAnt) => (j && typeof j === "object"
+    ? { pct: pctValido(j.used_percentage), reset: isoDeEpoch(j.resets_at) }
+    : { pct: pctAnt ?? null, reset: resetAnt ?? null });    // janela ausente: mantém a última
+  const f = janela(rl.five_hour, ant.fh, ant.reset5h);
+  const s = janela(rl.seven_day, ant.sd, ant.reset7d);
+  if (f.pct == null && s.pct == null) return;
+  ultimoStatusLine = { fh: f.pct, sd: s.pct, reset5h: f.reset, reset7d: s.reset, status: null, t: Date.now() };
+  enviarUso();   // atualiza na hora, sem consultar a rede
+}
+
+// Janela cuja hora de renovação já passou conta 0% até a próxima leitura
+function statusLineAtual() {
+  if (!ultimoStatusLine) return null;
+  const agora = Date.now();
+  const zerar = (pct, reset) => (reset && Date.parse(reset) <= agora ? 0 : pct);
+  const u = ultimoStatusLine;
+  return { ...u, fh: zerar(u.fh, u.reset5h), sd: zerar(u.sd, u.reset7d) };
+}
+
+async function resolveUsage({ rede = true } = {}) {
   const hist = readUsage();
   const extra = hist.ok
     ? { samples: hist.samples, peakSd: hist.peakSd, peakFh: hist.peakFh, count: hist.count, daysActive: hist.daysActive, org: hist.org }
     : { samples: [], peakSd: null, peakFh: null, count: null, daysActive: null, org: null };
-  const l = await live.getLive();
-  if (l.ok) {
-    lastLive = { fh: l.fh, sd: l.sd, reset5h: l.reset5h, reset7d: l.reset7d, status: l.status, t: l.t };
-    return { ok: true, source: "live", ...lastLive, ...extra };
+  if (rede) {
+    const l = await live.getLive();
+    if (l.ok) { lastLive = { fh: l.fh, sd: l.sd, reset5h: l.reset5h, reset7d: l.reset7d, status: l.status, t: l.t }; liveFalhou = null; }
+    else liveFalhou = l.error || "erro";
   }
-  if (lastLive) {
-    return { ok: true, source: "live", stale: true, ...lastLive, ...extra };
-  }
-  if (hist.ok) return { ...hist, source: "local", liveError: l.error };
-  return { ok: false, error: hist.error || l.error || "sem-dados", liveError: l.error };
+  const sl = statusLineAtual();
+  const melhor = [sl, lastLive].filter(Boolean).sort((a, b) => b.t - a.t)[0];
+  if (melhor === sl && sl) return { ok: true, source: "claude-code", ...sl, ...extra };
+  if (lastLive) return { ok: true, source: "live", ...(liveFalhou ? { stale: true } : {}), ...lastLive, ...extra };
+  if (hist.ok) return { ...hist, source: "local", liveError: liveFalhou };
+  return { ok: false, error: hist.error || liveFalhou || "sem-dados", liveError: liveFalhou };
 }
 
-async function tick() {
-  const data = await resolveUsage();
+function enviarDadosUso(data) {
   for (const w of [sidebar, panel]) {
     if (w && !w.isDestroyed()) w.webContents.send("usage", data);
   }
 }
+async function tick() { enviarDadosUso(await resolveUsage()); }
+async function enviarUso() { enviarDadosUso(await resolveUsage({ rede: false })); }
 function startTimer() {
   if (timer) clearInterval(timer);
   const ms = Math.max(1, Number(config.refreshMin) || 5) * 60 * 1000;
@@ -214,16 +407,14 @@ function createTray() {
 }
 
 // ----- IPC -----
-ipcMain.on("expand", () => placeSidebar(EXPANDED.w, EXPANDED.h));
-ipcMain.on("collapse", () => placeSidebar(COLLAPSED.w, COLLAPSED.h));
+ipcMain.on("set-interactive", (_e, v) => definirInterativa(!!v));
 ipcMain.on("sidebar-move", (_e, screenY, grabY) => {
   if (!sidebar) return;
-  const b = sidebar.getBounds();
-  const { height } = screen.getPrimaryDisplay().workAreaSize;
-  let y = Math.round(Number(screenY) - Number(grabY));
-  y = Math.max(0, Math.min(height - b.height, y));
-  sidebar.setBounds({ x: b.x, y, width: b.width, height: b.height });
+  const area = screen.getPrimaryDisplay().workArea;
+  let y = Math.round(Number(screenY) - Number(grabY)) - area.y;
+  y = Math.max(0, Math.min(area.height - JANELA.h, y));
   config.posY = y;
+  placeSidebar();
 });
 ipcMain.on("sidebar-move-end", () => saveConfig());
 ipcMain.on("open-panel", openPanel);
@@ -233,6 +424,49 @@ ipcMain.on("open-claude-menu", () => {
 ipcMain.on("panel-close", () => { if (panel) panel.hide(); });
 ipcMain.on("refresh", tick);
 ipcMain.on("quit", () => app.exit(0));
+// O renderer pede mais ou menos amostras do cursor (gato acordado / dormindo)
+ipcMain.on("cursor-hz", (_e, hz) => {
+  const ms = Math.max(30, Math.min(200, Math.round(1000 / (Number(hz) || 10))));
+  if (ms !== cursorIntervaloMs) { cursorIntervaloMs = ms; observarCursor(); }
+});
+ipcMain.handle("get-agent", () => ({ ...agregador.resumo(), conectado: pipeEscutando && integracao.hooks }));
+
+// Integração: status -> prévia (diff) -> aplicar. Só grava o que foi mostrado:
+// a prévia fica guardada aqui e a gravação confere a impressão digital do arquivo.
+let ultimaPrevia = null;
+ipcMain.handle("integration-status", () => { lerIntegracao(); return statusIntegracao(); });
+ipcMain.handle("integration-preview", (_e, pedido) => {
+  try {
+    const { alvo, acao } = pedido || {};
+    if (acao === "instalar" && !(relayInfo && relayInfo.ok)) throw new Error("o relay não está disponível nesta instalação");
+    const p = hooksInstall.previa(hooksInstall.caminhoSettings(), transformacao(alvo, acao));
+    ultimaPrevia = { alvo, acao, ...p };
+    return { ok: true, diff: p.diff, mudou: p.mudou, impressao: p.impressao, settings: hooksInstall.caminhoSettings() };
+  } catch (e) { return { ok: false, erro: String(e.message || e) }; }
+});
+ipcMain.handle("integration-apply", (_e, pedido) => {
+  try {
+    const { alvo, acao, impressao } = pedido || {};
+    const p = ultimaPrevia;
+    if (!p || p.alvo !== alvo || p.acao !== acao || p.impressao !== impressao) throw new Error("abra a prévia de novo antes de aplicar");
+    const arq = hooksInstall.caminhoSettings();
+    // statusLine: guarda a original para o relay repassar a saída dela e para restaurar depois
+    if (alvo === "statusline" && acao === "instalar") {
+      const { original } = hooksInstall.comStatus(hooksInstall.ler(arq).obj, relayInfo.exe);
+      agentePipe.atualizarConfigRelay({
+        statusLineOriginal: original,
+        statusLineAnterior: original && typeof original.command === "string" ? original.command : null,
+      });
+    }
+    const { backup } = hooksInstall.gravar(arq, p.novo, impressao);
+    if (alvo === "statusline" && acao === "remover") agentePipe.atualizarConfigRelay({ statusLineOriginal: null, statusLineAnterior: null });
+    ultimaPrevia = null;
+    lerIntegracao();
+    enviarAgente();
+    return { ok: true, backup, status: statusIntegracao() };
+  } catch (e) { return { ok: false, erro: String(e.message || e) }; }
+});
+
 ipcMain.handle("get-config", () => config);
 ipcMain.handle("get-usage", async () => await resolveUsage());
 ipcMain.handle("get-version", () => app.getVersion());
@@ -245,6 +479,7 @@ ipcMain.handle("set-config", (_e, patch) => {
   if (patch && "refreshMin" in patch) startTimer();
   if (patch && "showWidget" in patch && patch.showWidget !== before.showWidget) setWidgetVisible(patch.showWidget);
   rebuildTray();
+  enviarConfig();
   tick();
   return config;
 });
@@ -257,9 +492,12 @@ else {
   app.whenReady().then(() => {
     loadConfig();
     applyAutostart();
+    lerIntegracao();
     createSidebar();
     createTray();
     startTimer();
+    iniciarAgente();
+    observarCursor();
   });
   app.on("window-all-closed", () => { /* mantém vivo na bandeja */ });
 }

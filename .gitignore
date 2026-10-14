@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.log
 .env
+# relay compilado a partir de relay/tus-relay.cs (scripts/build-relay.js)
+assets/relay/
