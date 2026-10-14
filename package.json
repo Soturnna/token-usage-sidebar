@@ -1,6 +1,6 @@
 {
   "name": "token-usage-sidebar",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Barra lateral de desktop que mostra o consumo da API da Anthropic (Claude) nas janelas de 5h e 7 dias.",
   "main": "src/main.js",
   "scripts": {
@@ -10,7 +10,14 @@
     "dist": "electron-builder --win portable",
     "test": "node test/agent-state.test.js && node test/hooks-install.test.js"
   },
-  "keywords": ["anthropic", "claude", "usage", "rate-limit", "sidebar", "electron"],
+  "keywords": [
+    "anthropic",
+    "claude",
+    "usage",
+    "rate-limit",
+    "sidebar",
+    "electron"
+  ],
   "author": "Marcos Júnio",
   "license": "MIT",
   "devDependencies": {
@@ -20,8 +27,17 @@
   "build": {
     "appId": "com.marcos.tokenusagesidebar",
     "productName": "token-usage-sidebar",
-    "files": ["src/**/*", "assets/**/*", "package.json"],
-    "win": { "target": "portable", "signAndEditExecutable": false },
-    "portable": { "artifactName": "token-usage-sidebar.exe" }
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "token-usage-sidebar.exe"
+    }
   }
 }
