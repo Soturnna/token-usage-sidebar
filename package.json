@@ -4,8 +4,11 @@
   "description": "Barra lateral de desktop que mostra o consumo da API da Anthropic (Claude) nas janelas de 5h e 7 dias.",
   "main": "src/main.js",
   "scripts": {
+    "prestart": "node scripts/build-relay.js",
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "predist": "node scripts/build-relay.js",
+    "dist": "electron-builder --win portable",
+    "test": "node test/agent-state.test.js && node test/hooks-install.test.js"
   },
   "keywords": ["anthropic", "claude", "usage", "rate-limit", "sidebar", "electron"],
   "author": "Marcos Júnio",
